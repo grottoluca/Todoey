@@ -14,11 +14,15 @@ class TodoListViewController: UITableViewController {
     let searchController = UISearchController(searchResultsController: nil)
     let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
     var itemArray = [Item]()
+    var selectedCategory: Category? {
+        didSet{
+            loadItems()
+        }
+    }
     
     override func viewDidLoad() {
         super.viewDidLoad()
         initializeSearchBar()
-        loadItems()
     }
     
     //    MARK: - TableView Datasource methods
@@ -61,6 +65,7 @@ class TodoListViewController: UITableViewController {
             let newItem = Item(context: self.context)
             newItem.title = textField.text!
             newItem.done = false
+            newItem.parentCategory = self.selectedCategory
             
             self.itemArray.append(newItem)
             
@@ -86,7 +91,16 @@ class TodoListViewController: UITableViewController {
         self.tableView.reloadData()
     }
     
-    func loadItems(for request: NSFetchRequest<Item> = Item.fetchRequest()) {
+    func loadItems(for request: NSFetchRequest<Item> = Item.fetchRequest(), predicate: NSPredicate? = nil) {
+
+        let categoryPredicate = NSPredicate(format: "parentCategory.name MATCHES %@", selectedCategory!.name!)
+        
+        if let additionalPredicate = predicate {
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [categoryPredicate, additionalPredicate])
+        } else {
+            request.predicate = categoryPredicate
+        }
+
         do {
             try itemArray = context.fetch(request)
         } catch {
@@ -138,10 +152,10 @@ extension TodoListViewController: UISearchResultsUpdating{
         if !searchBarIsEmpty(){
             let request: NSFetchRequest<Item> = Item.fetchRequest()
             
-            request.predicate = NSPredicate(format: "title CONTAINS[cd] %@", searchText)
+            let predicate = NSPredicate(format: "title CONTAINS[cd] %@", searchText)
             request.sortDescriptors = [NSSortDescriptor(key: "title", ascending: true)]
 
-            loadItems(for: request)
+            loadItems(for: request, predicate: predicate)
         } else {
             loadItems()
         }
