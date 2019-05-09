@@ -7,22 +7,18 @@
 //
 
 import UIKit
+import CoreData
 
 class TodoListViewController: UITableViewController {
     
-    let dataFilePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("Items.plist")
+    let sc = UISearchController(searchResultsController: nil)
+    let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
     var itemArray = [Item]()
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        
-        //        Loading data
+        initializeSearchBar()
         loadItems()
-        
-        //        Initialize search bar
-        let search = UISearchController(searchResultsController: nil)
-        search.searchResultsUpdater = self as? UISearchResultsUpdating
-        self.navigationItem.searchController = search
     }
     
     //    MARK: - TableView Datasource methods
@@ -62,8 +58,9 @@ class TodoListViewController: UITableViewController {
         let alert = UIAlertController(title: "Add new item", message: "", preferredStyle: .alert)
         let action = UIAlertAction(title: "Add item", style: .default) { (action) in
             
-            let newItem = Item()
+            let newItem = Item(context: self.context)
             newItem.title = textField.text!
+            newItem.done = false
             
             self.itemArray.append(newItem)
             
@@ -81,27 +78,68 @@ class TodoListViewController: UITableViewController {
     //    MARK: - Model manipulation methods
     
     func saveItems() {
-        let encoder = PropertyListEncoder()
         do {
-            let data = try encoder.encode(itemArray)
-            try data.write(to: dataFilePath!)
+            try context.save()
         } catch {
-            print("Error during encoding items: \(error)")
+            print("Error saving context: \(error)")
         }
-        
         self.tableView.reloadData()
     }
     
     func loadItems() {
-        if let data = try? Data(contentsOf: dataFilePath!) {
-            let decoder = PropertyListDecoder()
-            
-            do {
-                itemArray = try decoder.decode([Item].self, from: data)
-            } catch {
-                print("Error during decoding items: \(error)")
-            }
+        let request: NSFetchRequest<Item> = Item.fetchRequest()
+        do {
+            try itemArray = context.fetch(request)
+        } catch {
+            print("Error fetching data from context: \(error)")
         }
     }
 }
 
+//MARK: - Search bar methods
+
+extension TodoListViewController: UISearchResultsUpdating{
+  
+    func initializeSearchBar() {
+        if #available(iOS 11.0, *) {
+            let searchController = UISearchController(searchResultsController: nil)
+            searchController.delegate = self as? UISearchControllerDelegate
+            searchController.searchResultsUpdater = self
+            let scb = searchController.searchBar
+            scb.tintColor = UIColor.white
+            scb.barTintColor = UIColor.white
+            if let textfield = scb.value(forKey: "searchField") as? UITextField {
+                textfield.textColor = UIColor.blue
+                if let backgroundview = textfield.subviews.first {
+                    
+                    // Background color
+                    backgroundview.backgroundColor = UIColor.white
+                    
+                    // Rounded corner
+                    backgroundview.layer.cornerRadius = 10;
+                    backgroundview.clipsToBounds = true;
+                }
+            }
+            
+            navigationItem.searchController = searchController
+            navigationItem.hidesSearchBarWhenScrolling = true
+            definesPresentationContext = true
+        }
+    }
+    
+    // MARK: - Private instance methods
+    
+    func searchBarIsEmpty() -> Bool {
+        // Returns true if the text is empty or nil
+        return sc.searchBar.text?.isEmpty ?? true
+    }
+    
+    func filterContentForSearchText(_ searchText: String, scope: String = "All") {
+        print(searchText)
+        tableView.reloadData()
+    }
+    
+    func updateSearchResults(for searchController: UISearchController) {
+        filterContentForSearchText(searchController.searchBar.text!)
+    }
+}
