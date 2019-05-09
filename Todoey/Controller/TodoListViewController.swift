@@ -9,24 +9,38 @@
 import UIKit
 
 class TodoListViewController: UITableViewController {
-
-    var itemArray = ["Find Mike", "Buy eggos", "Destroy Demogorgon"]
+    
+    var itemArray = [Item]()
     
     let defaults = UserDefaults.standard
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        // Do any additional setup after loading the view.
-        if let items = defaults.array(forKey: "TodoListArray") {
-            itemArray = items as! [String]
+        
+        let newItem = Item()
+        newItem.title = "Find Mike"
+        itemArray.append(newItem)
+        
+//      Do any additional setup after loading the view.
+        if let items = defaults.array(forKey: "TodoListArray") as? [Item] {
+            itemArray = items
         }
+        
+//        Initialize search bar
+        let search = UISearchController(searchResultsController: nil)
+        search.searchResultsUpdater = self as? UISearchResultsUpdating
+        self.navigationItem.searchController = search
     }
-
-    //MARK - TableView Datasource methods
+    
+//    MARK: - TableView Datasource methods
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "TodoItemCell", for: indexPath)
-        cell.textLabel?.text = itemArray[indexPath.row]
+        
+        cell.textLabel?.text = itemArray[indexPath.row].title
+        
+        cell.accessoryType = itemArray[indexPath.row].done ? .checkmark : .none
+        
         return cell
     }
     
@@ -35,27 +49,28 @@ class TodoListViewController: UITableViewController {
     }
     
     
-    //MARK - TableView Delegate methods
+//    MARK: - TableView Delegate methods
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        if tableView.cellForRow(at: indexPath)?.accessoryType == .checkmark{
-            tableView.cellForRow(at: indexPath)?.accessoryType = .none
-        } else {
-            tableView.cellForRow(at: indexPath)?.accessoryType = .checkmark
-        }
+        
+        itemArray[indexPath.row].done = !itemArray[indexPath.row].done
+        
+        tableView.reloadData()
         tableView.deselectRow(at: indexPath, animated: true)
-        
-        
     }
     
     
-    //MARK - Add new items
+//    MARK: - Add new items
     
     @IBAction func addButtonPressed(_ sender: UIBarButtonItem) {
         var textField = UITextField()
         let alert = UIAlertController(title: "Add new item", message: "", preferredStyle: .alert)
         let action = UIAlertAction(title: "Add item", style: .default) { (action) in
-            self.itemArray.append(textField.text!)
+            
+            let newItem = Item()
+            newItem.title = textField.text!
+            
+            self.itemArray.append(newItem)
             
             self.defaults.setValue(self.itemArray, forKey: "TodoListArray")
             
