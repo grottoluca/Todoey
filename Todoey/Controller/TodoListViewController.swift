@@ -11,7 +11,7 @@ import CoreData
 
 class TodoListViewController: UITableViewController {
     
-    let sc = UISearchController(searchResultsController: nil)
+    let searchController = UISearchController(searchResultsController: nil)
     let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
     var itemArray = [Item]()
     
@@ -86,25 +86,25 @@ class TodoListViewController: UITableViewController {
         self.tableView.reloadData()
     }
     
-    func loadItems() {
-        let request: NSFetchRequest<Item> = Item.fetchRequest()
+    func loadItems(for request: NSFetchRequest<Item> = Item.fetchRequest()) {
         do {
             try itemArray = context.fetch(request)
         } catch {
             print("Error fetching data from context: \(error)")
         }
+        tableView.reloadData()
     }
 }
 
 //MARK: - Search bar methods
 
 extension TodoListViewController: UISearchResultsUpdating{
-  
+    
     func initializeSearchBar() {
         if #available(iOS 11.0, *) {
-            let searchController = UISearchController(searchResultsController: nil)
             searchController.delegate = self as? UISearchControllerDelegate
             searchController.searchResultsUpdater = self
+            searchController.obscuresBackgroundDuringPresentation = false
             let scb = searchController.searchBar
             scb.tintColor = UIColor.white
             scb.barTintColor = UIColor.white
@@ -131,12 +131,20 @@ extension TodoListViewController: UISearchResultsUpdating{
     
     func searchBarIsEmpty() -> Bool {
         // Returns true if the text is empty or nil
-        return sc.searchBar.text?.isEmpty ?? true
+        return searchController.searchBar.text?.isEmpty ?? true
     }
     
     func filterContentForSearchText(_ searchText: String, scope: String = "All") {
-        print(searchText)
-        tableView.reloadData()
+        if !searchBarIsEmpty(){
+            let request: NSFetchRequest<Item> = Item.fetchRequest()
+            
+            request.predicate = NSPredicate(format: "title CONTAINS[cd] %@", searchText)
+            request.sortDescriptors = [NSSortDescriptor(key: "title", ascending: true)]
+
+            loadItems(for: request)
+        } else {
+            loadItems()
+        }
     }
     
     func updateSearchResults(for searchController: UISearchController) {
