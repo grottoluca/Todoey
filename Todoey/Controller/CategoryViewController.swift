@@ -7,8 +7,8 @@
 //
 
 import UIKit
-import CoreData
 import RealmSwift
+import ChameleonFramework
 
 class CategoryViewController: UITableViewController {
     
@@ -19,7 +19,9 @@ class CategoryViewController: UITableViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        registerForPreviewing(with: self, sourceView: tableView)
         load()
+        tableView.rowHeight = 80.0
     }
     
     
@@ -27,8 +29,12 @@ class CategoryViewController: UITableViewController {
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "CategoryCell", for: indexPath)
-        
         cell.textLabel?.text = categories?[indexPath.row].name ?? "Category not added"
+        if let actualColor = categories?[indexPath.row].colour{
+            cell.backgroundColor = UIColor(hexString: (actualColor))
+        } else {
+            categories?[indexPath.row].colour = UIColor.randomFlat.hexValue()
+        }
         
         return cell
     }
@@ -53,6 +59,23 @@ class CategoryViewController: UITableViewController {
         
     }
     
+    override func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
+        return true
+    }
+    
+    override func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
+        if (editingStyle == .delete) {
+            // handle delete (by removing the data from your array and updating the tableview)
+            if let categoryToDelete = self.categories?[indexPath.row] {
+                try! self.realm.write {
+                    self.realm.delete(categoryToDelete)
+                }
+            }
+            tableView.deleteRows(at: [indexPath], with: .fade)
+        }
+    }
+    
+    
     //    MARK: - Add new category
     
     @IBAction func addButtonPressed(_ sender: UIBarButtonItem) {
@@ -62,6 +85,7 @@ class CategoryViewController: UITableViewController {
             
             let newCategory = Category()
             newCategory.name = textField.text!
+            newCategory.colour = UIColor.randomFlat.hexValue()
             
             self.save(category: newCategory)
         }
@@ -91,4 +115,33 @@ class CategoryViewController: UITableViewController {
         categories = realm.objects(Category.self)
         tableView.reloadData()
     }
+}
+
+
+//MARK: - 3D Touch methods
+
+extension CategoryViewController: UIViewControllerPreviewingDelegate {
+   
+    func previewingContext(_ previewingContext: UIViewControllerPreviewing, viewControllerForLocation location: CGPoint) -> UIViewController? {
+        if let indexPath = tableView.indexPathForRow(at: location) {
+            previewingContext.sourceRect = tableView.rectForRow(at: indexPath)
+            return itemViewController(for: indexPath.row)
+        }
+        
+        return nil
+    }
+    
+    func previewingContext(_ previewingContext: UIViewControllerPreviewing, commit viewControllerToCommit: UIViewController) {
+        navigationController?.pushViewController(viewControllerToCommit, animated: true)
+    }
+
+    func itemViewController(for index: Int) -> TodoListViewController {
+        guard let vc = storyboard?.instantiateViewController(withIdentifier: "Items") as? TodoListViewController else {
+            fatalError("Couldn't load detail view controller")
+        }
+        
+        vc.selectedCategory = categories?[index]
+        return vc
+    }
+    
 }

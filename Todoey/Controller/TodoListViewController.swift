@@ -8,6 +8,7 @@
 
 import UIKit
 import RealmSwift
+import ChameleonFramework
 
 class TodoListViewController: UITableViewController {
     
@@ -24,6 +25,27 @@ class TodoListViewController: UITableViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         initializeSearchBar()
+        tableView.rowHeight = 80.0
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        if let colourHex = selectedCategory?.colour {
+            colourNavBar(withHexCode: colourHex)
+        }
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+       colourNavBar(withHexCode: "000000")
+    }
+    
+    
+    //    MARK: - Navbar methods
+    
+    func colourNavBar(withHexCode colourCode: String) {
+        guard let colour = UIColor(hexString: colourCode) else {fatalError()}
+        navigationController?.navigationBar.barTintColor = colour
+        navigationController?.navigationBar.tintColor = ContrastColorOf(colour, returnFlat: true)
+        navigationController?.navigationBar.largeTitleTextAttributes =  [NSAttributedString.Key.foregroundColor: ContrastColorOf(colour, returnFlat: true)]
     }
     
     //    MARK: - TableView Datasource methods
@@ -34,6 +56,12 @@ class TodoListViewController: UITableViewController {
         if let item = items?[indexPath.row] {
             cell.textLabel?.text = item.title
             cell.accessoryType = item.done ? .checkmark : .none
+            
+            if let colour = UIColor(hexString: selectedCategory!.colour)?.darken(byPercentage: CGFloat(indexPath.row) / CGFloat(items!.count)) {
+                cell.backgroundColor = colour
+                cell.textLabel?.textColor = ContrastColorOf(colour, returnFlat: true)
+            }
+            
         } else {
             cell.textLabel?.text = "No items added"
         }
@@ -59,11 +87,26 @@ class TodoListViewController: UITableViewController {
                 print("Error during saving done status \(error)")
             }
         }
-
+        
         tableView.reloadData()
         tableView.deselectRow(at: indexPath, animated: true)
     }
     
+    override func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
+        return true
+    }
+    
+    override func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
+        if (editingStyle == .delete) {
+            // handle delete (by removing the data from your array and updating the tableview)
+            if let itemToDelete = self.items?[indexPath.row] {
+                try! self.realm.write {
+                    self.realm.delete(itemToDelete)
+                }
+            }
+            tableView.deleteRows(at: [indexPath], with: .fade)
+        }
+    }
     
     //    MARK: - Add new items
     
